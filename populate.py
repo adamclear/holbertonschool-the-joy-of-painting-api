@@ -54,5 +54,5 @@ def populateDB():
     mergedFrame = pandas.concat([colorFrame, subjectFrame, dateFrame], axis=1)
 
     connectDB = sqlite3.connect('JoyOfCoding.db')
-    mergedFrame.to_sql('episodes', connectDB, index=False, if_exists='replace')
+    mergedFrame.to_sql('episodes', connectDB, index=True, if_exists='replace')
     connectDB.close()
