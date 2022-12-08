@@ -1,12 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Joy Of Painting API</title>
-</head>
-<body>
+{% extends 'base.html' %}
+{% block content %}
     <h1>
-        Hello, World!
+        Welcome to the Joy of Painting API!
     </h1>
-</body>
-</html>
+    <p>
+        You can type your search parameters in the url for refined results.
+
+    </p>
+    <div>
+        <h3>
+            Here is a random episode for you to enjoy.
+        </h3>
+        <div>
+            <h4>
+                <a href="{{ episode.Youtube }}"
+                   target="_blank">{{ episode.Title }}</a>
+            </h4>
+        </div>
+    </div>
+    <div>
+        <h3>
+            Or here is the list of all episodes!
+            {% for episode in allEps %}
+                <div>
+                    <h4>
+                        <a href="{{ episode.Youtube }}"
+                        target="_blank">{{ episode.Title }}</a>
+                    </h4>
+                </div>
+            {% endfor %}
+        </h3>
+    </div>
+{% endblock %}

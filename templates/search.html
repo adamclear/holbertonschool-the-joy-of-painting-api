@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+    <h1>
+        Here are your search results for the following criteria:
+    </h1>
+	{{ requestList }}
+	{% for episode in results %}
+		<div>
+			<h4>
+				<a href="{{ episode.Youtube }}"
+				target="_blank">{{ episode.Title }}</a>
+			</h4>
+		</div>
+	{% endfor %}
+{% endblock %}
