@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 """ Application for Joy of Coding project """
-from flask import Flask, make_response, render_template, request
+from flask import flash, Flask, redirect, render_template, request
+from flask_bcrypt import Bcrypt
+from flask_login import current_user, LoginManager, login_user, logout_user, UserMixin
 from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
-import json
+from flask_wtf import FlaskForm
+from wtforms import BooleanField, StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, Length
 import random
-import sqlite3
 import sqlitedb
+import uuid
 
 sqlitedb.connectDB()
 
@@ -14,11 +18,26 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///JoyOfCoding.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JSON_SORT_KEYS'] = False
+app.config['SECRET_KEY'] = 'Joy-of-Painting'
 
 db = SQLAlchemy(app)
 mm = Marshmallow(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+bcrypt = Bcrypt()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(str(user_id))
 
 db.Model.metadata.reflect(db.engine)
+
+class User(db.Model, UserMixin):
+    __tablename__ = 'Users'
+    __table_args__ = { 'extend_existing': True }
+    id = db.Column(db.String(8), primary_key=True)
+    username = db.Column(db.String(50), nullable=False, unique=True)
+    password = db.Column(db.String(200), nullable=False)
 
 class Episodes(db.Model):
     __tablename__ = 'Episodes'
@@ -123,35 +142,100 @@ class EpisodesSchema(mm.SQLAlchemyAutoSchema):
         model = Episodes
         ordered = True
 
-@app.route("/")
+db.create_all()
+
+class UserForm(FlaskForm):
+    username = StringField('Username',
+                            validators=[DataRequired(), Length(min=3, max=50)])
+    password = PasswordField('Password', validators=[DataRequired()])
+    register = SubmitField('Register')
+    login = SubmitField('Login')
+    remember = BooleanField('Remember Me')
+
+def gen_id():
+    id = str(uuid.uuid4())[:8]
+    return id
+
+@app.route("/", methods=['GET', 'POST'])
 def search():
     parameterDict = {}
     if len(request.args) < 1:
         randIndex = random.randint(0,403)
         episode = Episodes.query.filter_by(index=randIndex).first()
         allEps = Episodes.query.all()
-        return render_template("home.html", episode=episode, allEps=allEps)
-    requestList = []
-    for param in request.args:
-        if request.args.get(param) == '0' or request.args.get(param) == '1':
-            requestList.append(param)
+        if current_user.is_authenticated:
+            return render_template("home.html", episode=episode, allEps=allEps)
         else:
-            requestList.append(request.args.get(param))
-        if param == "Color":
-            parameterDict[request.args.get(param)] = 1
+            form = UserForm()
+            if form.validate_on_submit():
+                if form.register.data:
+                    id = gen_id()
+                    hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+                    user = User(id=id,
+                                username=form.username.data,
+                                password=hashed_password)
+                    db.session.add(user)
+                    db.session.commit()
+                    flash('Account created!')
+                    login_user(user, remember=form.remember.data)
+                    return render_template("home.html", episode=episode, allEps=allEps)
+                if form.login.data:
+                    user = User.query.filter_by(username=form.username.data).first()
+                    if user and bcrypt.check_password_hash(user.password, form.password.data):
+                        flash('Login success!')
+                        login_user(user, remember=form.remember.data)
+                        return render_template("home.html", episode=episode, allEps=allEps)
+            return render_template("login.html", form=form)
+    else:
+        if current_user.is_authenticated:
+            requestList = []
+            for param in request.args:
+                if request.args.get(param) == '0' or request.args.get(param) == '1':
+                    requestList.append(param)
+                else:
+                    requestList.append(request.args.get(param))
+                if param == "Color":
+                    parameterDict[request.args.get(param)] = 1
+                else:
+                    parameterDict[param] = request.args.get(param)
+            results = Episodes.query.filter_by(**parameterDict).all()
+            episodeSchema = EpisodesSchema(many=True)
+            serializedResults = episodeSchema.dump(results)
+            resultDict = {}
+            x = 0
+            for result in serializedResults:
+                resultDict[x] = result
+                x = x + 1
+            return render_template("search.html", results=results, requestList=requestList)
         else:
-            parameterDict[param] = request.args.get(param)
-    results = Episodes.query.filter_by(**parameterDict).all()
-    episodeSchema = EpisodesSchema(many=True)
-    serializedResults = episodeSchema.dump(results)
-    resultDict = {}
-    x = 0
-    for result in serializedResults:
-        resultDict[x] = result
-        x = x + 1
-    # jsonResults = json.dumps(resultDict, indent=1)
-    return render_template("search.html", results=results, requestList=requestList)
-    # return make_response(jsonResults)
+            randIndex = random.randint(0,403)
+            episode = Episodes.query.filter_by(index=randIndex).first()
+            allEps = Episodes.query.all()
+            form = UserForm()
+            if form.validate_on_submit():
+                if form.register.data:
+                    id = gen_id()
+                    hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+                    user = User(id=id,
+                                username=form.username.data,
+                                password=hashed_password)
+                    db.session.add(user)
+                    db.session.commit()
+                    flash('Account created!')
+                    login_user(user, remember=form.remember.data)
+                    return render_template("home.html", episode=episode, allEps=allEps)
+                if form.login.data:
+                    user = User.query.filter_by(username=form.username.data).first()
+                    if user and bcrypt.check_password_hash(user.password, form.password.data):
+                        login_user(user, remember=form.remember.data)
+                        flash('Login success!')
+                        return render_template("home.html", episode=episode, allEps=allEps)
+            return render_template("login.html", form=form)
+
+@app.route("/logout")
+def logout():
+    logout_user()
+    return redirect("/")
 
 if __name__ == "__main__":
     app.run(debug=True)

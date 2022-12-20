@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+    <h1>Please Login/Register</h1>
+	<form method="POST" action="">
+		{{ form.hidden_tag() }}
+		<fieldset class="form-group">
+			{{ form.username }}
+			{{ form.password }}
+			{{ form.register }}
+			{{ form.login }}
+			{{ form.remember }}
+		</fieldset>
+	</form>
+{% endblock %}
