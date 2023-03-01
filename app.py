@@ -9,6 +9,7 @@ from flask_wtf import FlaskForm
 from wtforms import BooleanField, StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length
 import random
+import socketio
 import sqlitedb
 import uuid
 
